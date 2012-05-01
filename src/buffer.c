@@ -30,10 +30,10 @@
 #include <sys/socket.h>
 #include "buffer.h"
 
-#define DEFAULT_SIZE 4096
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
 
+static void parse_ancillary_data(struct msghdr *, struct timeval *);
 static size_t setup_write_iov(const struct Buffer *, struct iovec *, size_t);
 static size_t setup_read_iov(const struct Buffer *, struct iovec *, size_t);
 static inline void advance_write_position(struct Buffer *, size_t);
@@ -41,7 +41,7 @@ static inline void advance_read_position(struct Buffer *, size_t);
 
 
 struct Buffer *
-new_buffer() {
+new_buffer(int size) {
     struct Buffer *buf;
 
     buf = malloc(sizeof(struct Buffer));
@@ -49,16 +49,42 @@ new_buffer() {
         return NULL;
     }
 
-    buf->size = DEFAULT_SIZE;
+    buf->size = size;
     buf->len = 0;
     buf->head = 0;
+    buf->tx_bytes = 0;
+    buf->rx_bytes = 0;
     buf->buffer = malloc(buf->size);
     if (buf->buffer == NULL) {
         free(buf);
-        return NULL;
+        buf = NULL;
     }
 
     return buf;
+}
+
+ssize_t
+buffer_resize(struct Buffer *buf, size_t new_size) {
+    char *new_buffer;
+
+    if (new_size < buf->len)
+        return -1; /* new_size too small to hold existing data */
+
+    new_buffer = malloc(new_size);
+    if (new_buffer == NULL)
+        return -2;
+
+    if (buffer_peek(buf, new_buffer, new_size) != buf->len) {
+        /* failed to copy all that data to the new buffer */
+        free(new_buffer);
+        return -3;
+    }
+
+    free(buf->buffer);
+    buf->buffer = new_buffer;
+    buf->head = 0;
+    
+    return buf->len;
 }
 
 void
@@ -73,6 +99,7 @@ ssize_t
 buffer_recv(struct Buffer *buffer, int sockfd, int flags) {
     ssize_t bytes;
     struct iovec iov[2];
+    char control_buf[64];
     struct msghdr msg = {
         NULL,   // *msg_name
         0,      //  msg_namelen
@@ -83,9 +110,15 @@ buffer_recv(struct Buffer *buffer, int sockfd, int flags) {
         0       //  msg_flags
     };
 
+    memset(control_buf, 0, sizeof(control_buf));
+    msg.msg_control = (void *)control_buf;
+    msg.msg_controllen = sizeof(control_buf);
+
     msg.msg_iovlen = setup_write_iov(buffer, iov, 0);
 
     bytes = recvmsg(sockfd, &msg, flags);
+
+    parse_ancillary_data(&msg, &buffer->last_recv);
 
     if (bytes > 0)
         advance_write_position(buffer, bytes);
@@ -97,6 +130,7 @@ ssize_t
 buffer_send(struct Buffer *buffer, int sockfd, int flags) {
     ssize_t bytes;
     struct iovec iov[2];
+    char control_buf[64];
     struct msghdr msg = {
         NULL,   // *msg_name
         0,      //  msg_namelen
@@ -106,10 +140,16 @@ buffer_send(struct Buffer *buffer, int sockfd, int flags) {
         0,      //  msg_controllen
         0       //  msg_flags
     };
+    
+    memset(control_buf, 0, sizeof(control_buf));
+    msg.msg_control = (void *)control_buf;
+    msg.msg_controllen = sizeof(control_buf);
 
     msg.msg_iovlen = setup_read_iov(buffer, iov, 0);
 
     bytes = sendmsg(sockfd, &msg, flags);
+
+    parse_ancillary_data(&msg, &buffer->last_send);
 
     if (bytes > 0)
         advance_read_position(buffer, bytes);
@@ -202,6 +242,16 @@ buffer_push(struct Buffer *dst, const void *src, size_t len) {
     return bytes_appended;
 }
 
+static void
+parse_ancillary_data(struct msghdr *m, struct timeval *tv) {
+    struct cmsghdr *cmsg;
+
+    for (cmsg = CMSG_FIRSTHDR(m); cmsg != NULL; cmsg = CMSG_NXTHDR(m, cmsg)) {
+        if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP)
+            memcpy(tv, CMSG_DATA(cmsg), sizeof(struct timeval));
+    }
+}
+
 /*
  * Setup a struct iovec iov[2] for a write to a buffer.
  * struct iovec *iov MUST be at least length 2.
@@ -271,11 +321,13 @@ setup_read_iov(const struct Buffer *buffer, struct iovec *iov, size_t len) {
 static inline void
 advance_write_position(struct Buffer *buffer, size_t offset) {
     buffer->len += offset;
+    buffer->rx_bytes += offset;
 }
 
 static inline void
 advance_read_position(struct Buffer *buffer, size_t offset) {
     buffer->head = (buffer->head + offset) & (buffer->size - 1);
     buffer->len -= offset;
+    buffer->tx_bytes += offset;
 }
 

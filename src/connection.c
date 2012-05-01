@@ -79,12 +79,14 @@ free_connections() {
 void
 accept_connection(struct Listener *listener) {
     struct Connection *c;
+    int on = 1;
 
     c = new_connection();
     if (c == NULL) {
         syslog(LOG_CRIT, "calloc failed");
         return;
     }
+
 
     c->client.sockfd = accept(listener->sockfd, NULL, NULL);
     if (c->client.sockfd < 0) {
@@ -98,6 +100,10 @@ accept_connection(struct Listener *listener) {
         free_connection(c);
         return;
     }
+
+    if (setsockopt(c->client.sockfd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0)
+        syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
+
     c->state = ACCEPTED;
     c->listener = listener;
 
@@ -349,6 +355,7 @@ handle_connection_client_hello(struct Connection *con) {
     const char *hostname;
     char peeripstr[INET6_ADDRSTRLEN];
     int peerport = 0;
+    int on = 1;
 
     get_peer_address(con->client.sockfd, peeripstr, sizeof(peeripstr), &peerport);
 
@@ -371,6 +378,10 @@ handle_connection_client_hello(struct Connection *con) {
         close_connection(con);
         return;
     }
+
+    if (setsockopt(con->server.sockfd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0)
+        syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
+
     con->state = CONNECTED;
 }
 
@@ -409,13 +420,13 @@ new_connection() {
     if (c == NULL)
         return NULL;
 
-    c->client.buffer = new_buffer();
+    c->client.buffer = new_buffer(BUFFER_LEN);
     if (c->client.buffer == NULL) {
         free_connection(c);
         return NULL;
     }
     
-    c->server.buffer = new_buffer();
+    c->server.buffer = new_buffer(BUFFER_LEN);
     if (c->server.buffer == NULL) {
         free_connection(c);
         return NULL;
