@@ -1,7 +1,7 @@
 #include <assert.h>
 #include "buffer.h"
 
-void test1() {
+static void test1() {
     struct Buffer *buffer;
     char input[] = "This is a test.";
     char output[sizeof(input)];
@@ -34,11 +34,11 @@ void test1() {
 
     len = buffer_pop(buffer, output, sizeof(output));
     assert(len == 0);
-    
+
     free_buffer(buffer);
 }
 
-void test2() {
+static void test2() {
     struct Buffer *buffer;
     char input[] = "Testing wrap around behaviour.";
     char output[sizeof(input)];
@@ -53,7 +53,7 @@ void test2() {
 
         i += len;
     }
-    
+
     while (len) {
         len = buffer_pop(buffer, output, sizeof(output));
     }

@@ -1,6 +1,12 @@
-* Reimplement configuration reloading
-* PID file
+* Non-blocking connect() to backend server
 * Non-blocking DNS resolution
-* Improved table backend lookup, currently this is a linear lookup
-* Move from select() to libevent to support more than FD_SETSIZE / 2 connections
-* HTTP interface for backend servers to determine remote IP and port of connection
+** Allow nameservers to be specified in configuration file
+* Allow source address for connection to backend to be specified
+* Reimplement configuration reloading
+* Optionally dump invalid requests to file
+* Fallback hostname/backend server
+* Refactor logging so unit tests do not log to syslog
+* Per connection access logging including hostname, bytes rx/tx, src/dst ip/port, timestamp and duration
+* Improved table backend lookup, currently this is a linear search
+** Considering splitting hostname at label boundaries and search backwards from TLD
+* HTTP or DNS interface for backend servers to determine remote IP and port of connection

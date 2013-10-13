@@ -1,0 +1,21 @@
+language: c
+compiler:
+  - clang
+  - gcc
+install:
+  - sudo apt-get update
+  - DEBIAN_FRONTEND=noninteractive sudo apt-get install -y libev-dev libpcre3-dev cdbs dh-autoreconf valgrind apache2-utils
+  - ./autogen.sh
+script:
+  - ./configure
+  - make all
+  - make check
+  - sudo make install
+  - sudo make uninstall
+  - bash -c "cd tests && ./functional_test valgrind --error-exitcode=1"
+  - dpkg-buildpackage
+  - sudo dpkg -i ../sniproxy_0.1-1_`dpkg --print-architecture`.deb
+  - sudo perl -pi -e 's/ENABLED=0/ENABLED=1/' /etc/default/sniproxy
+  - echo -e "pidfile /tmp/sniproxy.pid\n\nlisten 80 {\n  proto http\n}\n\ntable {\n  localhost *\n}" | sudo tee /etc/sniproxy.conf
+  - sudo service sniproxy start
+  - sleep 1; test -e /tmp/sniproxy.pid && ps -up `cat /tmp/sniproxy.pid`

@@ -1,11 +1,11 @@
 /*
- * Copyright (c) 2011 and 2012, Dustin Lundquist <dustin@null-ptr.net>
+ * Copyright (c) 2013, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -23,10 +23,28 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#ifndef UTIL_H
-#define UTIL_H
+#ifndef ADDRESS_H
+#define ADDRESS_H
 
-void hexdump(const void *, int);
-int isnumeric(const char *);
+#include <stdio.h>
+#include <stdint.h>
+#include <sys/socket.h>
+
+struct Address;
+
+struct Address *new_address(const char *);
+struct Address *new_address_sa(const struct sockaddr *, socklen_t);
+size_t address_len(const struct Address *);
+int address_is_hostname(const struct Address *);
+int address_is_sockaddr(const struct Address *);
+int address_is_wildcard(const struct Address *);
+const char *address_hostname(const struct Address *);
+const struct sockaddr *address_sa(const struct Address *);
+socklen_t address_sa_len(const struct Address *);
+int address_port(const struct Address *);
+void address_set_port(struct Address *, int);
+const char *display_address(const struct Address *, char *, size_t);
+const char *display_sockaddr(const void *, char *, size_t);
+int is_numeric(const char *);
 
 #endif

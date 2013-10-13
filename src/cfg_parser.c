@@ -2,10 +2,10 @@
  * Copyright (c) 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -39,8 +39,8 @@ parse_config(void *context, FILE *cfg, const struct Keyword *grammar) {
     void *sub_context = NULL;
     int result;
 
-    while((token = next_token(cfg, buffer, sizeof(buffer))) != END) {
-        switch(token) {
+    while ((token = next_token(cfg, buffer, sizeof(buffer))) != END) {
+        switch (token) {
             case ERROR:
                 fprintf(stderr, "tokenizer error\n");
                 return -1;
@@ -61,7 +61,7 @@ parse_config(void *context, FILE *cfg, const struct Keyword *grammar) {
                         return -1;
                     }
 
-                    /* Special case for wildcard grammers i.e. tables */
+                    /* Special case for wildcard grammars i.e. tables */
                     if (keyword->keyword == NULL && keyword->parse_arg) {
                         result = keyword->parse_arg(sub_context, buffer);
                         if (result <= 0)
@@ -111,15 +111,11 @@ parse_config(void *context, FILE *cfg, const struct Keyword *grammar) {
 
 static const struct Keyword *
 find_keyword(const struct Keyword *grammar, const char *word) {
-
-    while (grammar->keyword) {
+    for (; grammar->keyword; grammar++)
         if (strncmp(grammar->keyword, word, strlen(word)) == 0)
             return grammar;
 
-        grammar++;
-    }
-
-    /* Special case for wildcard grammers i.e. tables */
+    /* Special case for wildcard grammars i.e. tables */
     if (grammar->keyword == NULL && grammar->create)
         return grammar;
 

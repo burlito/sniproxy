@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
-#include <arpa/inet.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include "binder.h"
 
-int test_binder(int);
+static int test_binder(int);
 
 int main() {
     int i;
@@ -20,7 +21,7 @@ int main() {
     return 0;
 }
 
-int
+static int
 test_binder(int port) {
     int fd;
     struct sockaddr_in addr;

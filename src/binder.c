@@ -2,10 +2,10 @@
  * Copyright (c) 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -113,7 +113,7 @@ bind_socket(struct sockaddr *addr, size_t addr_len) {
     iov[0].iov_len = sizeof(data_buf);
     msg.msg_iov = iov;
     msg.msg_iovlen = 1;
-    msg.msg_control = control_buf;;
+    msg.msg_control = control_buf;
     msg.msg_controllen = sizeof(control_buf);
 
     if (recvmsg(binder_sock, &msg, 0) < 0) {
@@ -187,9 +187,8 @@ static void run_binder(int sock_fd) {
         cmsg = CMSG_FIRSTHDR(&msg);
         cmsg->cmsg_level = SOL_SOCKET;
         cmsg->cmsg_type = SCM_RIGHTS;
-        cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        cmsg->cmsg_len = CMSG_LEN(sizeof(fd));
         fdptr = (int *)CMSG_DATA(cmsg);
-        *fdptr = fd;
         memcpy(fdptr, &fd, sizeof(fd));
         msg.msg_controllen = cmsg->cmsg_len;
 
@@ -202,7 +201,7 @@ static void run_binder(int sock_fd) {
 
         continue;
 
-error:
+        error:
         strncpy(buffer + strlen(buffer), strerror(errno), sizeof(buffer) - strlen(buffer));
 
         if (send(sock_fd, buffer, strlen(buffer), 0) < 0) {

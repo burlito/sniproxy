@@ -2,10 +2,10 @@
  * Copyright (c) 2011 and 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -29,8 +29,19 @@
 #include <syslog.h>
 #include "table.h"
 #include "backend.h"
+#include "address.h"
 
-static void init_table(struct Table *);
+
+static inline struct Backend *
+table_lookup_backend(const struct Table *table, const char *hostname) {
+    return lookup_backend(&table->backends, hostname);
+}
+
+static inline void
+remove_table_backend(struct Table *table, struct Backend *backend) {
+    remove_backend(&table->backends, backend);
+}
+
 
 struct Table *
 new_table() {
@@ -70,16 +81,9 @@ add_table(struct Table_head *tables, struct Table *table) {
     SLIST_INSERT_HEAD(tables, table, entries);
 }
 
-void init_tables(struct Table_head *tables) {
-    struct Table *iter;
-
-    SLIST_FOREACH(iter, tables, entries)
-        init_table(iter);
-}
-
-static void init_table(struct Table *table) {
+void init_table(struct Table *table) {
     struct Backend *iter;
-    
+
     STAILQ_FOREACH(iter, &table->backends, entries)
         init_backend(iter);
 }
@@ -95,7 +99,7 @@ free_tables(struct Table_head *tables) {
 }
 
 struct Table *
-lookup_table(const struct Table_head *tables, const char *name) {
+table_lookup(const struct Table_head *tables, const char *name) {
     struct Table *iter;
 
     SLIST_FOREACH(iter, tables, entries) {
@@ -117,17 +121,17 @@ remove_table(struct Table_head *tables, struct Table *table) {
     free_table(table);
 }
 
-int
-lookup_table_server_socket(const struct Table *table, const char *hostname) {
+const struct Address *
+table_lookup_server_address(const struct Table *table, const char *hostname) {
     struct Backend *b;
 
-    b = lookup_table_backend(table, hostname);
+    b = table_lookup_backend(table, hostname);
     if (b == NULL) {
         syslog(LOG_INFO, "No match found for %s", hostname);
-        return -1;
+        return NULL;
     }
 
-    return open_backend_socket(b, hostname);
+    return b->address;
 }
 
 void
@@ -140,10 +144,7 @@ print_table_config(FILE *file, struct Table *table) {
         fprintf(file, "table %s {\n", table->name);
 
     STAILQ_FOREACH(backend, &table->backends, entries) {
-        if (backend->port == 0)
-            fprintf(file, "\t%s %s\n", backend->hostname, backend->address);
-        else 
-            fprintf(file, "\t%s %s %d\n", backend->hostname, backend->address, backend->port);
+        print_backend_config(file, backend);
     }
     fprintf(file, "}\n\n");
 }
@@ -152,8 +153,13 @@ void
 free_table(struct Table *table) {
     struct Backend *iter;
 
+    if (table == NULL)
+        return;
+
     while ((iter = STAILQ_FIRST(&table->backends)) != NULL)
         remove_backend(&table->backends, iter);
+
     free(table->name);
     free(table);
 }
+

@@ -2,10 +2,10 @@
  * Copyright (c) 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -31,8 +31,8 @@ static int next_word(FILE *, char *, int);
 
 
 /*
- * next_token() returns the next token based on the current position of config
- * file advancing the position to immidiatly after the token.
+ * next_token() returns the next token based on the current position of
+ * configuration file advancing the position to immediately after the token.
  */
 enum Token
 next_token(FILE *config, char *buffer, size_t buffer_len) {
@@ -40,7 +40,7 @@ next_token(FILE *config, char *buffer, size_t buffer_len) {
     int token_len;
 
     while ((ch = getc(config)) != EOF) {
-        switch(ch) {
+        switch (ch) {
             case ' ':
                 /* fall through */
             case '\t':
@@ -60,8 +60,8 @@ next_token(FILE *config, char *buffer, size_t buffer_len) {
             case '}':
                 return CBRACE;
             default:
-                /* Rewind one byte, so next_word() can fetch from 
-                 * the begining of the word */
+                /* Rewind one byte, so next_word() can fetch from
+                 * the beginning of the word */
                 fseek(config, -1, SEEK_CUR);
 
                 token_len = next_word(config, buffer, buffer_len);
@@ -74,7 +74,7 @@ next_token(FILE *config, char *buffer, size_t buffer_len) {
     return END;
 }
 
-static void 
+static void
 chomp_line(FILE *file) {
     int ch;
 
@@ -94,17 +94,17 @@ next_word(FILE *file, char *buffer, int buffer_len) {
         if (escaped) {
             escaped = 0;
             buffer[len] = (char)ch;
-            len ++;
+            len++;
             continue;
         }
-        switch(ch) {
+        switch (ch) {
             case '\\':
                 escaped = 1;
                 break;
             case '\"':
                 quoted = 1 - quoted; /* toggle quoted flag */
                 break;
-            /* Seperators */
+            /* separators */
             case ' ':
             case '\t':
             case ';':
@@ -119,17 +119,16 @@ next_word(FILE *file, char *buffer, int buffer_len) {
                     fseek(file, -1, SEEK_CUR);
 
                     buffer[len] = '\0';
-                    len ++;
+                    len++;
                     return len;
                 }
                 /* fall through */
             default:
                 buffer[len] = (char)ch;
-                len ++;
+                len++;
         }
     }
     /* We reached the end of the file, or filled our buffer */
     return -1;
 }
-
 

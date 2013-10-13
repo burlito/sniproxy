@@ -2,10 +2,10 @@
  * Copyright (c) 2011 and 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -24,6 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 #include <stdio.h>
+#include <stdlib.h> /* malloc() */
 #include <string.h> /* strncpy() */
 #include <strings.h> /* strncasecmp() */
 #include <ctype.h> /* isblank() */
@@ -37,34 +38,50 @@
 static const char http_503[] = "HTTP/1.1 503 Service Temporarily Unavailable\r\n"
     "Content-Type: text/html\r\n"
     "Connection: close\r\n\r\n"
-    "Backend not avaliable";
+    "Backend not available";
 
 
+static int get_header(const char *, const char *, int, char **);
 static int next_header(const char **, int *);
-static char *get_header(const char *, const char *, int);
 
 
-const char *
-parse_http_header(const char* data, int len) {
-    char *hostname;
-    int i;
+/*
+ * Parses a HTTP request for the Host: header
+ *
+ * Returns:
+ *  >=0  - length of the hostname and updates *hostname
+ *         caller is responsible for freeing *hostname
+ *  -1   - Incomplete request
+ *  -2   - No Host header included in this request
+ *  -3   - Invalid hostname pointer
+ *  -4   - malloc failure
+ *  < -4 - Invalid HTTP request
+ *
+ */
+int
+parse_http_header(const char* data, size_t data_len, char **hostname) {
+    int result, i;
 
-    hostname = get_header("Host:", data, len);
     if (hostname == NULL)
-        return hostname;
+        return -3;
 
-    /* 
+    result = get_header("Host:", data, data_len, hostname);
+    if (result < 0)
+        return result;
+
+    /*
      *  if the user specifies the port in the request, it is included here.
      *  Host: example.com:80
      *  so we trim off port portion
      */
-    for (i = strlen(hostname); i > 0; i--)
-        if (hostname[i] == ':') {
-            hostname[i] = '\0';
+    for (i = result - 1; i >= 0; i--)
+        if ((*hostname)[i] == ':') {
+            (*hostname)[i] = '\0';
+            result = i;
             break;
         }
 
-    return hostname;
+    return result;
 }
 
 void
@@ -73,9 +90,8 @@ close_http_socket(int sockfd) {
     close(sockfd);
 }
 
-static char *
-get_header(const char *header, const char *data, int data_len) {
-    static char header_data[SERVER_NAME_LEN];
+static int
+get_header(const char *header, const char *data, int data_len, char **value) {
     int len, header_len;
 
     header_len = strlen(header);
@@ -87,20 +103,17 @@ get_header(const char *header, const char *data, int data_len) {
             while (header_len < len && isblank(data[header_len]))
                 header_len++;
 
-            /* Check if we have enought room before copying */
-            if (len - header_len >= SERVER_NAME_LEN) {
-                /* too big */
-                return NULL;
-            }
-            strncpy (header_data, data + header_len, len - header_len);
-            
-            /* null terminate the header data */
-            header_data[len - header_len] = '\0';
+            *value = malloc(len - header_len + 1);
+            if (*value == NULL)
+                return -4;
 
-            return header_data;
+            strncpy(*value, data + header_len, len - header_len);
+            (*value)[len - header_len] = '\0';
+
+            return len - header_len;
         }
 
-    return NULL;
+    return -2;
 }
 
 static int
@@ -110,8 +123,8 @@ next_header(const char **data, int *len) {
     /* perhaps we can optimize this to reuse the value of header_len, rather than scanning twice */
     /* walk our data stream until the end of the header */
     while (*len > 2 && (*data)[0] != '\r' && (*data)[1] != '\n') {
-        (*len) --;
-        (*data) ++;
+        (*len)--;
+        (*data)++;
     }
 
     /* advanced past the <CR><LF> pair */

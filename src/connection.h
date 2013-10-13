@@ -2,10 +2,10 @@
  * Copyright (c) 2011 and 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -26,15 +26,15 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
+#include <sys/socket.h>
 #include <sys/queue.h>
-#include <sys/select.h>
+#include <ev.h>
 #include "listener.h"
 #include "buffer.h"
 
-#define BUFFER_LEN 4096
-
 struct Connection {
     enum State {
+        NEW,            /* Before successful accept */
         ACCEPTED,       /* Newly accepted client connection */
         CONNECTED,      /* Parsed client hello and connected to server */
         SERVER_CLOSED,  /* Client closed socket */
@@ -43,19 +43,20 @@ struct Connection {
     } state;
 
     struct {
-        int sockfd;
+        struct sockaddr_storage addr;
+        socklen_t addr_len;
+        struct ev_io watcher;
         struct Buffer *buffer;
     } client, server;
-    struct Listener * listener;
+    const struct Listener *listener;
+    const char *hostname; /* Requested hostname */
 
-    LIST_ENTRY(Connection) entries;
+    TAILQ_ENTRY(Connection) entries;
 };
 
 void init_connections();
-void accept_connection(struct Listener *);
-int fd_set_connections(fd_set *, fd_set *, int);
-void handle_connections(fd_set *, fd_set *);
-void free_connections();
+void accept_connection(const struct Listener *, struct ev_loop *);
+void free_connections(struct ev_loop *);
 void print_connections();
 
 #endif

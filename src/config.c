@@ -2,10 +2,10 @@
  * Copyright (c) 2011 and 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -31,6 +31,7 @@
 
 
 static int accept_username(struct Config *, char *);
+static int accept_pidfile(struct Config *, char *);
 static int end_listener_stanza(struct Config *, struct Listener *);
 static int end_table_stanza(struct Config *, struct Table *);
 static int end_backend(struct Table *, struct Backend *);
@@ -64,6 +65,11 @@ static struct Keyword global_grammar[] = {
             (int(*)(void *, char *))accept_username,
             NULL,
             NULL},
+    { "pidfile",
+            NULL,
+            (int(*)(void *, char *))accept_pidfile,
+            NULL,
+            NULL},
     { "listener",
             (void *(*)())new_listener,
             (int(*)(void *, char *))accept_listener_arg,
@@ -82,6 +88,7 @@ struct Config *
 init_config(const char *filename) {
     FILE *file;
     struct Config *config;
+    int i;
 
     config = malloc(sizeof(struct Config));
     if (config == NULL) {
@@ -91,6 +98,7 @@ init_config(const char *filename) {
 
     config->filename = NULL;
     config->user = NULL;
+    config->pidfile = NULL;
     SLIST_INIT(&config->listeners);
     SLIST_INIT(&config->tables);
 
@@ -108,14 +116,14 @@ init_config(const char *filename) {
         free_config(config);
         return NULL;
     }
-    
+
     if (parse_config((void *)config, file, global_grammar) <= 0) {
         long whence = ftell(file);
         char buffer[256];
 
         fprintf(stderr, "error parsing %s at %ld near:\n", filename, whence);
         fseek(file, -20, SEEK_CUR);
-        for (int i = 0; i < 5; i++)
+        for (i = 0; i < 5; i++)
             fprintf(stderr, "%ld\t%s", ftell(file), fgets(buffer, sizeof(buffer), file));
 
         free_config(config);
@@ -129,11 +137,9 @@ init_config(const char *filename) {
 
 void
 free_config(struct Config *config) {
-
-    if (config->filename)
-        free(config->filename);
-    if (config->user)
-        free(config->user);
+    free(config->filename);
+    free(config->user);
+    free(config->pidfile);
 
     free_listeners(&config->listeners);
 
@@ -166,6 +172,9 @@ print_config(FILE *file, struct Config *config) {
     if (config->user)
         fprintf(file, "username %s\n\n", config->user);
 
+    if (config->pidfile)
+        fprintf(file, "pidfile %s\n\n", config->pidfile);
+
     SLIST_FOREACH(listener, &config->listeners, entries) {
         print_listener_config(file, listener);
     }
@@ -186,6 +195,16 @@ accept_username(struct Config *config, char *username) {
         return 1;
 }
 
+static int
+accept_pidfile(struct Config *config, char *pidfile) {
+        config->pidfile = strdup(pidfile);
+        if (config->pidfile == NULL) {
+            perror("malloc:");
+            return -1;
+        }
+
+        return 1;
+}
 
 static int
 end_listener_stanza(struct Config *config, struct Listener *listener) {
@@ -206,7 +225,7 @@ end_table_stanza(struct Config *config, struct Table *table) {
     /* TODO check table */
 
     add_table(&config->tables, table);
-   
+
     return 1;
 }
 

@@ -2,10 +2,10 @@
  * Copyright (c) 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -28,6 +28,8 @@
 #include <string.h> /* memcpy */
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/uio.h>
+#include <unistd.h>
 #include "buffer.h"
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -83,15 +85,16 @@ buffer_resize(struct Buffer *buf, size_t new_size) {
     free(buf->buffer);
     buf->buffer = new_buffer;
     buf->head = 0;
-    
+
     return buf->len;
 }
 
 void
 free_buffer(struct Buffer *buf) {
-    if (buf->buffer)
-        free(buf->buffer);
-    
+    if (buf == NULL)
+        return;
+
+    free(buf->buffer);
     free(buf);
 }
 
@@ -99,22 +102,18 @@ ssize_t
 buffer_recv(struct Buffer *buffer, int sockfd, int flags) {
     ssize_t bytes;
     struct iovec iov[2];
+    struct msghdr msg;
     char control_buf[64];
-    struct msghdr msg = {
-        NULL,   // *msg_name
-        0,      //  msg_namelen
-        iov,    // *msg_iov
-        0,      //  msg_iovlen
-        NULL,   // *msg_control
-        0,      //  msg_controllen
-        0       //  msg_flags
-    };
 
     memset(control_buf, 0, sizeof(control_buf));
+
+    msg.msg_name = NULL;
+    msg.msg_namelen = 0;
+    msg.msg_iov = iov;
+    msg.msg_iovlen = setup_write_iov(buffer, iov, 0);
     msg.msg_control = (void *)control_buf;
     msg.msg_controllen = sizeof(control_buf);
-
-    msg.msg_iovlen = setup_write_iov(buffer, iov, 0);
+    msg.msg_flags = 0;
 
     bytes = recvmsg(sockfd, &msg, flags);
 
@@ -122,7 +121,7 @@ buffer_recv(struct Buffer *buffer, int sockfd, int flags) {
 
     if (bytes > 0)
         advance_write_position(buffer, bytes);
-    
+
     return bytes;
 }
 
@@ -131,21 +130,17 @@ buffer_send(struct Buffer *buffer, int sockfd, int flags) {
     ssize_t bytes;
     struct iovec iov[2];
     char control_buf[64];
-    struct msghdr msg = {
-        NULL,   // *msg_name
-        0,      //  msg_namelen
-        iov,    // *msg_iov
-        0,      //  msg_iovlen
-        NULL,   // *msg_control
-        0,      //  msg_controllen
-        0       //  msg_flags
-    };
-    
+    struct msghdr msg;
+
     memset(control_buf, 0, sizeof(control_buf));
+
+    msg.msg_name = NULL;
+    msg.msg_namelen = 0;
+    msg.msg_iov = iov;
+    msg.msg_iovlen = setup_read_iov(buffer, iov, 0);
     msg.msg_control = (void *)control_buf;
     msg.msg_controllen = sizeof(control_buf);
-
-    msg.msg_iovlen = setup_read_iov(buffer, iov, 0);
+    msg.msg_flags = 0;
 
     bytes = sendmsg(sockfd, &msg, flags);
 
@@ -153,7 +148,7 @@ buffer_send(struct Buffer *buffer, int sockfd, int flags) {
 
     if (bytes > 0)
         advance_read_position(buffer, bytes);
-    
+
     return bytes;
 }
 
@@ -210,9 +205,9 @@ buffer_peek(const struct Buffer *src, void *dst, size_t len) {
 size_t
 buffer_pop(struct Buffer *src, void *dst, size_t len) {
     size_t bytes;
-    
+
     bytes = buffer_peek(src, dst, len);
-    
+
     if (bytes > 0)
         advance_read_position(src, bytes);
 
@@ -227,7 +222,7 @@ buffer_push(struct Buffer *dst, const void *src, size_t len) {
     size_t bytes_appended = 0;
 
     if (dst->size - dst->len < len)
-        return -1; /* insufficent room */
+        return -1; /* insufficient room */
 
     iov_len = setup_write_iov(dst, iov, len);
 
@@ -267,7 +262,7 @@ setup_write_iov(const struct Buffer *buffer, struct iovec *iov, size_t len) {
     if (room == 0) /* trivial case: no room */
         return 0;
 
-    /* Allow caller to specify maxium length */
+    /* Allow caller to specify maximum length */
     if (len)
         room = MIN(room, len);
 

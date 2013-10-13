@@ -2,10 +2,10 @@
  * Copyright (c) 2011 and 2012, Dustin Lundquist <dustin@null-ptr.net>
  * All rights reserved.
  *
- * Redistribution and use in source and binary forms, with or without 
+ * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
  *
- * 1. Redistributions of source code must retain the above copyright notice, 
+ * 1. Redistributions of source code must retain the above copyright notice,
  *    this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
@@ -34,21 +34,22 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/resource.h>
-#include "sni_proxy.h"
+#include "sniproxy.h"
+#include "config.h"
 #include "server.h"
 
 
 static void usage();
 static void daemonize(const char *);
+static void write_pidfile(const char *);
 
 
 int
 main(int argc, char **argv) {
     struct Config *config = NULL;
-    const char *config_file = "/etc/sni_proxy.conf";
+    const char *config_file = "/etc/sniproxy.conf";
     int background_flag = 1;
     int opt;
-
 
     while ((opt = getopt(argc, argv, "fc:")) != -1) {
         switch (opt) {
@@ -58,7 +59,7 @@ main(int argc, char **argv) {
             case 'f': /* foreground */
                 background_flag = 0;
                 break;
-            default: 
+            default:
                 usage();
                 exit(EXIT_FAILURE);
         }
@@ -75,7 +76,10 @@ main(int argc, char **argv) {
     if (background_flag)
         daemonize(config->user ? config->user : DEFAULT_USERNAME);
 
-    openlog(SYSLOG_IDENT, LOG_CONS, SYSLOG_FACILITY);
+    openlog(SYSLOG_IDENT, LOG_NDELAY, SYSLOG_FACILITY);
+
+    if (background_flag && config->pidfile != NULL)
+        write_pidfile(config->pidfile);
 
     run_server();
 
@@ -86,11 +90,8 @@ main(int argc, char **argv) {
 
 static void
 daemonize(const char *username) {
-    int i, fd0, fd1, fd2;
     pid_t pid;
-    struct rlimit rl;
     struct passwd *user;
-    struct stat sb;
 
     user = getpwnam(username);
     if (user == NULL) {
@@ -99,11 +100,6 @@ daemonize(const char *username) {
     }
 
     umask(0);
-
-    if (getrlimit(RLIMIT_NOFILE, &rl) < 0) {
-        perror("getrlimit()");
-        exit(1);
-    }
 
     if ((pid = fork()) < 0) {
         perror("fork()");
@@ -122,21 +118,19 @@ daemonize(const char *username) {
         exit(1);
     }
 
-    /* close all non socket file descriptors */
-    for (i = sysconf(_SC_OPEN_MAX); i >= 0; i--) {
-        if (fstat(i, &sb) == -1 || S_ISSOCK(sb.st_mode))
-            continue;
-    
-        close(i);
+    if (freopen("/dev/null", "r", stdin) == NULL) {
+        perror("freopen(stdin)");
+        exit(1);
     }
 
-    fd0 = open("/dev/null", O_RDWR);
-    fd1 = dup(fd0);
-    fd2 = dup(fd0);
+    if (freopen("/dev/null", "a", stdout) == NULL) {
+        perror("freopen(stdout)");
+        exit(1);
+    }
 
-    if (fd0 != 0 || fd1 != 1 || fd2 != 2) {
-        fprintf(stderr, "Unexpected file descriptors\n");
-        exit(2);
+    if (freopen("/dev/null", "a", stderr) == NULL) {
+        perror("freopen(stderr)");
+        exit(1);
     }
 
     if (setgid(user->pw_gid) < 0) {
@@ -160,5 +154,18 @@ daemonize(const char *username) {
 
 static void
 usage() {
-    fprintf(stderr, "Usage: sni_proxy [-c <config>] [-f]\n");
+    fprintf(stderr, "Usage: sniproxy [-c <config>] [-f]\n");
+}
+
+static void
+write_pidfile(const char *path) {
+    FILE *fp = fopen(path, "w");
+    if (fp == NULL) {
+        perror("fopen");
+        return;
+    }
+
+    fprintf(fp, "%d\n", getpid());
+
+    fclose(fp);
 }
