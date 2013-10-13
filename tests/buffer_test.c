@@ -47,7 +47,7 @@ static void test2() {
     buffer = new_buffer(200);
     assert(buffer != NULL);
 
-    while (i < 190) {
+    while (i < 180) {
         len = buffer_push(buffer, input, sizeof(input));
         assert(len  == sizeof(input));
 

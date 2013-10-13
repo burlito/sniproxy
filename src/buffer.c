@@ -265,8 +265,8 @@ setup_write_iov(const struct Buffer *buffer, struct iovec *iov, size_t len) {
     if (len)
         room = MIN(room, len);
 
-    start = (buffer->head + buffer->len) & (buffer->size - 1);
-    end = (start + room) & (buffer->size - 1);
+    start = (buffer->head + buffer->len) % buffer->size;
+    end = (start + room) % buffer->size;
 
     if (end > start) { /* simple case */
         iov[0].iov_base = &buffer->buffer[start];
@@ -295,7 +295,7 @@ setup_read_iov(const struct Buffer *buffer, struct iovec *iov, size_t len) {
     if (len)
         end = MIN(end, buffer->head + len);
 
-    end = end & (buffer->size - 1);
+    end = end % buffer->size;
 
     if (end > buffer->head) {
         iov[0].iov_base = &buffer->buffer[buffer->head];
@@ -320,7 +320,7 @@ advance_write_position(struct Buffer *buffer, size_t offset) {
 
 static inline void
 advance_read_position(struct Buffer *buffer, size_t offset) {
-    buffer->head = (buffer->head + offset) & (buffer->size - 1);
+    buffer->head = (buffer->head + offset) % buffer->size;
     buffer->len -= offset;
     buffer->tx_bytes += offset;
 }
