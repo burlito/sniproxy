@@ -26,12 +26,10 @@
 #ifndef BUFFER_H
 #define BUFFER_H
 
-<<<<<<< HEAD
 #include <stdio.h>
-#include <sys/time.h> /* struct timeval */
-=======
 #include <sys/types.h>
->>>>>>> master
+#include <sys/time.h> /* struct timeval */
+
 
 struct Buffer {
     char *buffer;

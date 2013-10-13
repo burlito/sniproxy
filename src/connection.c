@@ -94,7 +94,7 @@ accept_connection(const struct Listener *listener, struct ev_loop *loop) {
         return;
     }
 
-    if (setsockopt(con->server.sockfd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0)
+    if (setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0)
         syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
 
     ev_io_init(&c->client.watcher, connection_cb, sockfd, EV_READ);
@@ -372,7 +372,7 @@ handle_connection_client_hello(struct Connection *con, struct ev_loop *loop) {
         return;
     }
 
-    if (setsockopt(con->server.sockfd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0)
+    if (setsockopt(sockfd, SOL_SOCKET, SO_TIMESTAMP, &on, sizeof(on)) != 0)
         syslog(LOG_CRIT, "setsockopt(): %s", strerror(errno));
 
     assert(con->state == ACCEPTED);

@@ -241,10 +241,9 @@ static void
 parse_ancillary_data(struct msghdr *m, struct timeval *tv) {
     struct cmsghdr *cmsg;
 
-    for (cmsg = CMSG_FIRSTHDR(m); cmsg != NULL; cmsg = CMSG_NXTHDR(m, cmsg)) {
+    for (cmsg = CMSG_FIRSTHDR(m); cmsg != NULL; cmsg = CMSG_NXTHDR(m, cmsg))
         if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SO_TIMESTAMP)
             memcpy(tv, CMSG_DATA(cmsg), sizeof(struct timeval));
-    }
 }
 
 /*
