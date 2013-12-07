@@ -36,6 +36,7 @@
 #include <netdb.h> /* getaddrinfo */
 #include <unistd.h> /* close */
 #include <arpa/inet.h>
+#include <uv.h>
 #include <ev.h>
 #include <assert.h>
 #include "connection.h"

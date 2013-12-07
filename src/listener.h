@@ -27,6 +27,7 @@
 #define LISTENER_H
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <uv.h>
 #include <ev.h>
 #include "address.h"
 #include "table.h"

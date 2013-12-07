@@ -10,12 +10,12 @@ AM_INIT_AUTOMAKE
 AC_PROG_CC_C99
 
 # Checks for libraries.
-AC_SEARCH_LIBS([ev_run], [ev],,AC_MSG_ERROR([libev4 not found]))
+AC_SEARCH_LIBS([uv_run], [uv],,AC_MSG_ERROR([libuv not found]))
 AC_SEARCH_LIBS([pcre_exec], [pcre],,AC_MSG_ERROR([libpcre not found]))
 
 # Checks for header files.
 AC_FUNC_ALLOCA
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h],,
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h netdb.h netinet/in.h stddef.h stdlib.h string.h strings.h sys/socket.h sys/time.h syslog.h unistd.h uv.h],,
     AC_MSG_ERROR([required header(s) not found]))
 
 # Checks for typedefs, structures, and compiler characteristics.

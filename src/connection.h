@@ -28,6 +28,7 @@
 
 #include <sys/socket.h>
 #include <sys/queue.h>
+#include <uv.h>
 #include <ev.h>
 #include "listener.h"
 #include "buffer.h"

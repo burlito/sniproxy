@@ -27,6 +27,7 @@
 #include <signal.h>
 #include <string.h> /* memset() */
 #include <errno.h>
+#include <uv.h>
 #include <ev.h>
 #include "server.h"
 #include "listener.h"
