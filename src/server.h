@@ -28,7 +28,7 @@
 
 #include "config.h"
 
-UV_EXTERN uv_loop_t* uv_loop;
+uv_loop_t* uv_loop;
 
 void init_server(struct Config *);
 void run_server();

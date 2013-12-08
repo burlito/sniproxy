@@ -71,6 +71,7 @@ main(int argc, char **argv) {
         return 1;
     }
 
+	uv_loop = uv_loop_new();
     init_server(config);
 
     if (background_flag)

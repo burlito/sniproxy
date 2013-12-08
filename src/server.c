@@ -28,31 +28,31 @@
 #include <string.h> /* memset() */
 #include <errno.h>
 #include <uv.h>
+/*\TODO burlak: remove #include <ev.h>*/
 #include <ev.h>
 #include "server.h"
 #include "listener.h"
 #include "connection.h"
 
-static void signal_cb(struct ev_loop *, struct ev_signal *, int revents);
+static void signal_cb(uv_signal_t *, int);
 
 static struct Config *config;
-static struct ev_signal sighup_watcher;
-static struct ev_signal sigusr1_watcher;
-static struct ev_signal sigint_watcher;
-static struct ev_signal sigterm_watcher;
+static uv_signal_t sighup_watcher;
+static uv_signal_t sigusr1_watcher;
+static uv_signal_t sigint_watcher;
+static uv_signal_t sigterm_watcher;
 
 void
 init_server(struct Config *c) {
     config = c;
-
-    ev_signal_init(&sighup_watcher, signal_cb, SIGHUP);
-    ev_signal_init(&sigusr1_watcher, signal_cb, SIGUSR1);
-    ev_signal_init(&sigint_watcher, signal_cb, SIGINT);
-    ev_signal_init(&sigterm_watcher, signal_cb, SIGTERM);
-    ev_signal_start(EV_DEFAULT, &sighup_watcher);
-    ev_signal_start(EV_DEFAULT, &sigusr1_watcher);
-    ev_signal_start(EV_DEFAULT, &sigint_watcher);
-    ev_signal_start(EV_DEFAULT, &sigterm_watcher);
+    uv_signal_init(uv_loop, &sighup_watcher);
+    uv_signal_init(uv_loop, &sigusr1_watcher);
+    uv_signal_init(uv_loop, &sigint_watcher);
+    uv_signal_init(uv_loop, &sigterm_watcher);
+    uv_signal_start(&sighup_watcher, signal_cb, SIGHUP);
+    uv_signal_start(&sigusr1_watcher, signal_cb, SIGUSR1);
+    uv_signal_start(&sigint_watcher, signal_cb, SIGINT);
+    uv_signal_start(&sigterm_watcher, signal_cb, SIGTERM);
 
     /* ignore SIGPIPE, or it will kill us */
     signal(SIGPIPE, SIG_IGN);
@@ -60,27 +60,34 @@ init_server(struct Config *c) {
     init_listeners(&config->listeners, &config->tables);
 }
 
+/**\TODO burlak: remove int running*/
+int running = 1;
+
 void
 run_server() {
     init_connections();
 
-    ev_run(EV_DEFAULT, 0);
+    /**\TODO burlak: remove while*/
+    do{
+        ev_run(EV_DEFAULT, EVRUN_NOWAIT);
+        uv_run(uv_loop, UV_RUN_NOWAIT);
+    }while(running);
 
     free_connections(EV_DEFAULT);
 }
 
 static void
-signal_cb(struct ev_loop *loop, struct ev_signal *w, int revents) {
-    if (revents & EV_SIGNAL) {
-        switch (w->signum) {
-            case SIGHUP:
-                break;
-            case SIGUSR1:
-                print_connections();
-                break;
-            case SIGINT:
-            case SIGTERM:
-                ev_unloop(loop, EVUNLOOP_ALL);
-        }
+signal_cb(uv_signal_t* handle, int signum) {
+    switch (signum) {
+        case SIGHUP:
+            break;
+        case SIGUSR1:
+            print_connections();
+            break;
+        case SIGINT:
+        case SIGTERM:
+            uv_stop(uv_loop);
+            /*\TODO burlak: delete running = 0;*/
+            running = 0;
     }
 }
